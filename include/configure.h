@@ -18,7 +18,7 @@
 
 #define   __CONF_CC             "cc"
 #define   __CONF_CFLAGS         "-O3"
-#define   __CONF_DFLAGS         " -D__GFORTRAN -D__STD_F95 -D__FFTW"
+#define   __CONF_DFLAGS         " -D__GFORTRAN -D__STD_F95 -D__FFTW -D__MPI -D__PARA"
 #define   __CONF_CPP            "cpp"
 #define   __CONF_CPPFLAGS       "-P -traditional"
 
