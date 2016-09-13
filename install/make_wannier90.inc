@@ -3,7 +3,7 @@
 #=======================================
 
 F90=mpif90
-FCOPTS=$(FFLAGS) -nomodule -qopenmp 
-LDOPTS=-static-intel  -qopenmp
+FCOPTS=$(FFLAGS) -x f95-cpp-input 
+LDOPTS=-g -pthread
 
-LIBS =    -lmkl_intel_lp64  -lmkl_intel_thread -lmkl_core 
+LIBS =  -llapack  -lblas   -lblas  
