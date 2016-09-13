@@ -13,9 +13,12 @@ make.inc
 
 .DS_Store
 S3DE/iotk/iotk
+iotk
+S3DE
 
 include/c_defs.h
 include/fft_defs.h
 install/make_blas.inc
 install/make_lapack.inc
 
+*dSYM
