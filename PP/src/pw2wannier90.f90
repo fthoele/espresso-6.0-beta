@@ -118,8 +118,10 @@ PROGRAM pw2wannier90
   CALL mp_startup ( )
 #endif
   !! not sure if this should be called also in 'library' mode or not !!
+  write(*,*) 'debug before env start'
   CALL environment_start ( 'PW2WANNIER' )
   !
+  write(*,*) 'debug after env start'
   CALL start_clock( 'init_pw2wan' )
   !
   ! Read input on i/o node and broadcast to the rest
@@ -164,6 +166,7 @@ PROGRAM pw2wannier90
      tmp_dir = trimcheck(outdir)
      ! back to all nodes
   ENDIF
+  write(*,*) 'debug after ionode'
   !
   CALL mp_bcast(ios,ionode_id, world_comm)
   IF (ios /= 0) CALL errore( 'pw2wannier90', 'reading inputpp namelist', abs(ios))
@@ -199,6 +202,7 @@ PROGRAM pw2wannier90
   WRITE(stdout,*)
   WRITE(stdout,*) ' Reading nscf_save data'
   CALL read_file
+  write(*,*) 'debug after read file'
   WRITE(stdout,*)
   !
   IF (noncolin.and.gamma_only) CALL errore('pw2wannier90',&
@@ -2300,7 +2304,7 @@ SUBROUTINE compute_amn
                      fac(1)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*(spin_qaxis(3,iw)+1)*cmplx(1.0d0,0.0d0,dp)
                      fac(2)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*cmplx(spin_qaxis(1,iw),spin_qaxis(2,iw),dp)
                   else
-                     fac(1)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*(spin_qaxis(3,iw))*cmplx(1.0d0,0.0d0,dp)
+                     fac(1)=(1.0_dp/sqrt(1-spin_qaxis(3,iw)))*(spin_qaxis(3,iw)-1)*cmplx(1.0d0,0.0d0,dp)
                      fac(2)=(1.0_dp/sqrt(1-spin_qaxis(3,iw)))*cmplx(spin_qaxis(1,iw),spin_qaxis(2,iw),dp)
                   endif
                   ibnd1 = 0
