@@ -118,10 +118,8 @@ PROGRAM pw2wannier90
   CALL mp_startup ( )
 #endif
   !! not sure if this should be called also in 'library' mode or not !!
-  write(*,*) 'debug before env start'
   CALL environment_start ( 'PW2WANNIER' )
   !
-  write(*,*) 'debug after env start'
   CALL start_clock( 'init_pw2wan' )
   !
   ! Read input on i/o node and broadcast to the rest
@@ -166,7 +164,6 @@ PROGRAM pw2wannier90
      tmp_dir = trimcheck(outdir)
      ! back to all nodes
   ENDIF
-  write(*,*) 'debug after ionode'
   !
   CALL mp_bcast(ios,ionode_id, world_comm)
   IF (ios /= 0) CALL errore( 'pw2wannier90', 'reading inputpp namelist', abs(ios))
@@ -202,7 +199,6 @@ PROGRAM pw2wannier90
   WRITE(stdout,*)
   WRITE(stdout,*) ' Reading nscf_save data'
   CALL read_file
-  write(*,*) 'debug after read file'
   WRITE(stdout,*)
   !
   IF (noncolin.and.gamma_only) CALL errore('pw2wannier90',&
