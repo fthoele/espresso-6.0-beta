@@ -1497,7 +1497,7 @@ SUBROUTINE compute_spin
    COMPLEX(DP)              :: sigma_x,sigma_y,sigma_z,cdum1,cdum2
    complex(DP), allocatable :: spn(:,:), spn_aug(:,:)
 
-   integer  :: iun_spn_aug, np, is1, is2, kh, kkb
+   integer  :: np, is1, is2, kh, kkb
    complex(dp) :: sigma_x_aug, sigma_y_aug, sigma_z_aug
    COMPLEX(DP), ALLOCATABLE :: be_n(:,:), be_m(:,:)
 
@@ -2133,7 +2133,7 @@ SUBROUTINE compute_amn
    !
    INTEGER, EXTERNAL :: find_free_unit
    !
-   COMPLEX(DP) :: amn, zdotc,amn_tmp,fac(2), amn_gf
+   COMPLEX(DP) :: amn, zdotc,amn_tmp,fac(2)
    real(DP):: ddot
    COMPLEX(DP), ALLOCATABLE :: sgf(:,:)
    INTEGER :: ik, npw, ibnd, ibnd1, iw,i, ikevc, nt, ipol
