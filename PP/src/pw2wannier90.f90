@@ -13,10 +13,7 @@
 !         uHu, uIu terms for orbital magnetisation
 ! please send bugs and comments to 
 ! Jonathan Yates and Arash Mostofi
-!
-! Known limitations:
-!  spinors and orbital magnetisation term are not yet
-!  implemented for ultrasoft pseudopotentials or PAW 
+! Takashi Koretsune and Florian Thoele -- noncollinear and USPPs
 !
 !
 !
@@ -108,16 +105,16 @@ PROGRAM pw2wannier90
 
   ! these are in wannier module.....-> integer :: ispinw, ikstart, ikstop, iknum
   NAMELIST / inputpp / outdir, prefix, spin_component, wan_mode, &
-       seedname, write_unk, write_amn, write_mmn, write_spn, write_eig,&
+       seedname, write_unk, write_amn, write_mmn, write_spn, write_eig, &
+       regular_mesh, & ! change D. Gresch
    ! begin change Lopez, Thonhauser, Souza
        wvfn_formatted, reduce_unk, write_unkg, write_uhu,&
-       write_uIu, spn_formatted, uHu_formatted, uIu_formatted !ivo
+       write_uIu, spn_formatted, uHu_formatted, uIu_formatted !ivo 
    ! end change Lopez, Thonhauser, Souza
-       regular_mesh ! change D. Gresch
   !
   ! initialise environment
   !
-#ifdef __MPI
+#ifdef __MPI11
   CALL mp_startup ( )
 #endif
   !! not sure if this should be called also in 'library' mode or not !!
@@ -2177,8 +2174,13 @@ SUBROUTINE compute_amn
    ENDIF
    !
    ALLOCATE( sgf(npwx,n_proj))
-   ALLOCATE( gf_spinor(2*npwx,n_proj))
-   ALLOCATE( sgf_spinor(2*npwx,n_proj))
+   !if (old_spinor_proj) then
+     ALLOCATE( gf_spinor(2*npwx,n_wannier))
+     ALLOCATE( sgf_spinor(2*npwx,n_wannier))
+   !else
+   !  ALLOCATE( gf_spinor(2*npwx,n_proj))
+   !  ALLOCATE( sgf_spinor(2*npwx,n_proj))
+   !endif
    !
    IF (any_uspp) THEN
       CALL allocate_bec_type ( nkb, n_wannier, becp)
@@ -2245,7 +2247,12 @@ SUBROUTINE compute_amn
                      IF (excluded_band(ibnd)) CYCLE
                      amn=(0.0_dp,0.0_dp)
                      !                  amn = zdotc(npw,evc_nc(1,ipol,ibnd),1,sgf(1,iw),1)
-                     amn = zdotc(npw,evc(istart,ibnd),1,sgf(1,iw),1)
+                     if (any_uspp) then
+                        amn = zdotc(npw, evc(0,ibnd), 1, sgf_spinor(1, iw + (ipol-1)*n_proj), 1)
+                        amn = amn + zdotc(npw, evc(npwx+1,ibnd), 1, sgf_spinor(npwx+1, iw + (ipol-1)*n_proj), 1)
+                     else
+                        amn = zdotc(npw,evc(istart,ibnd),1,sgf(1,iw),1)
+                     endif
                      CALL mp_sum(amn, intra_pool_comm)
                      ibnd1=ibnd1+1
                      IF (wan_mode=='standalone') THEN
@@ -2376,47 +2383,60 @@ END SUBROUTINE compute_amn
 
 subroutine orient_gf_spinor()
    use constants, only: eps6
+   use noncollin_module, only: npol
    use wvfct,           ONLY : npw, npwx
    use wannier
 
    implicit none
 
-   integer :: iw, ipol, istart
+   integer :: iw, ipol, istart, iw_spinor
    logical :: spin_z_pos, spin_z_neg
    complex(dp) :: fac(2)
 
 
    gf_spinor = (0.0d0, 0.0d0)
-   DO iw = 1,n_proj
-      spin_z_pos=.false.;spin_z_neg=.false.
-      ! detect if spin quantisation axis is along z
-      if((abs(spin_qaxis(1,iw)-0.0d0)<eps6).and.(abs(spin_qaxis(2,iw)-0.0d0)<eps6) &
-         .and.(abs(spin_qaxis(3,iw)-1.0d0)<eps6)) then
-         spin_z_pos=.true.
-      elseif(abs(spin_qaxis(1,iw)-0.0d0)<eps6.and.abs(spin_qaxis(2,iw)-0.0d0)<eps6 &
-         .and.abs(spin_qaxis(3,iw)+1.0d0)<eps6) then
-         spin_z_neg=.true.
-      endif
-      if(spin_z_pos .or. spin_z_neg) then
-         if(spin_z_pos) then
-            ipol=(3-spin_eig(iw))/2
-         else
-            ipol=(3+spin_eig(iw))/2
-         endif
-         istart = (ipol-1)*npwx + 1         
-         gf_spinor(istart:istart+npw-1, iw) = gf(1:npw, iw)
-      else
-        if(spin_eig(iw)==1) then
-           fac(1)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*(spin_qaxis(3,iw)+1)*cmplx(1.0d0,0.0d0,dp)
-           fac(2)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*cmplx(spin_qaxis(1,iw),spin_qaxis(2,iw),dp)
-        else
-           fac(1)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*(spin_qaxis(3,iw))*cmplx(1.0d0,0.0d0,dp)
-           fac(2)=(1.0_dp/sqrt(1-spin_qaxis(3,iw)))*cmplx(spin_qaxis(1,iw),spin_qaxis(2,iw),dp)
+   if (old_spinor_proj) then
+      iw_spinor = 1
+      DO ipol=1,npol
+        istart = (ipol-1)*npwx + 1
+        DO iw = 1,n_proj
+          ! generate 2*nproj spinor functions, one for each spin channel
+          gf_spinor(istart:istart+npw-1, iw_spinor) = gf(1:npw, iw)
+          iw_spinor = iw_spinor + 1
+        enddo
+      enddo  
+   else
+     DO iw = 1,n_proj
+        spin_z_pos=.false.;spin_z_neg=.false.
+        ! detect if spin quantisation axis is along z
+        if((abs(spin_qaxis(1,iw)-0.0d0)<eps6).and.(abs(spin_qaxis(2,iw)-0.0d0)<eps6) &
+           .and.(abs(spin_qaxis(3,iw)-1.0d0)<eps6)) then
+           spin_z_pos=.true.
+        elseif(abs(spin_qaxis(1,iw)-0.0d0)<eps6.and.abs(spin_qaxis(2,iw)-0.0d0)<eps6 &
+           .and.abs(spin_qaxis(3,iw)+1.0d0)<eps6) then
+           spin_z_neg=.true.
         endif
-        gf_spinor(1:npw, iw) = gf(1:npw, iw) * fac(1)
-        gf_spinor(npwx + 1:npwx + npw, iw) = gf(1:npw, iw) * fac(2)        
-      endif
-   enddo
+        if(spin_z_pos .or. spin_z_neg) then
+           if(spin_z_pos) then
+              ipol=(3-spin_eig(iw))/2
+           else
+              ipol=(3+spin_eig(iw))/2
+           endif
+           istart = (ipol-1)*npwx + 1         
+           gf_spinor(istart:istart+npw-1, iw) = gf(1:npw, iw)
+        else
+          if(spin_eig(iw)==1) then
+             fac(1)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*(spin_qaxis(3,iw)+1)*cmplx(1.0d0,0.0d0,dp)
+             fac(2)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*cmplx(spin_qaxis(1,iw),spin_qaxis(2,iw),dp)
+          else
+             fac(1)=(1.0_dp/sqrt(1+spin_qaxis(3,iw)))*(spin_qaxis(3,iw))*cmplx(1.0d0,0.0d0,dp)
+             fac(2)=(1.0_dp/sqrt(1-spin_qaxis(3,iw)))*cmplx(spin_qaxis(1,iw),spin_qaxis(2,iw),dp)
+          endif
+          gf_spinor(1:npw, iw) = gf(1:npw, iw) * fac(1)
+          gf_spinor(npwx + 1:npwx + npw, iw) = gf(1:npw, iw) * fac(2)        
+        endif
+     enddo
+   endif
 end subroutine
 !
 !
